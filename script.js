@@ -1,32 +1,43 @@
-// Smooth scroll reveal on scroll
-const observerOptions = {
-    threshold: 0.1,
-    rootMargin: '0px 0px -50px 0px'
-};
+document.addEventListener('DOMContentLoaded', () => {
 
-const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            entry.target.style.opacity = '1';
-            entry.target.style.transform = 'translateY(0)';
+    const yearSpan = document.getElementById('current-year');
+    if (yearSpan) {
+        yearSpan.textContent = new Date().getFullYear();
+    }
+
+    const themeToggle = document.getElementById('theme-toggle');
+    const htmlRoot = document.documentElement;
+
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+        htmlRoot.setAttribute('data-theme', 'dark');
+        themeToggle.textContent = '☀️';
+    }
+
+    themeToggle.addEventListener('click', () => {
+        const isDark = htmlRoot.getAttribute('data-theme') === 'dark';
+        if (isDark) {
+            htmlRoot.setAttribute('data-theme', 'light');
+            themeToggle.textContent = '🌙';
+            localStorage.setItem('theme', 'light');
+        } else {
+            htmlRoot.setAttribute('data-theme', 'dark');
+            themeToggle.textContent = '☀️';
+            localStorage.setItem('theme', 'dark');
         }
     });
-}, observerOptions);
 
-// Observe all sections
-document.addEventListener('DOMContentLoaded', () => {
-    const sections = document.querySelectorAll('.section');
-    sections.forEach(section => {
-        observer.observe(section);
-    });
-
-    // Add smooth scroll for anchor links
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
             e.preventDefault();
-            const target = document.querySelector(this.getAttribute('href'));
-            if (target) {
-                target.scrollIntoView({
+            const targetId = this.getAttribute('href');
+            if (targetId === '#') return;
+
+            const targetElement = document.querySelector(targetId);
+            if (targetElement) {
+                targetElement.scrollIntoView({
                     behavior: 'smooth',
                     block: 'start'
                 });
@@ -34,60 +45,94 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Add animation to cards on hover
-    const cards = document.querySelectorAll('.experience-card, .project-card, .interest-card');
-    cards.forEach(card => {
-        card.addEventListener('mouseenter', function() {
-            this.style.transform = 'translateY(-8px)';
+    const sectionObserverOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const sectionObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+            }
         });
-        card.addEventListener('mouseleave', function() {
-            this.style.transform = 'translateY(0)';
-        });
+    }, sectionObserverOptions);
+
+    document.querySelectorAll('.section').forEach(section => {
+        sectionObserver.observe(section);
     });
 
-    // Add parallax effect to hero background
+    const stats = document.querySelectorAll('.stat-number');
+    let animated = false;
+
+    const animateStats = () => {
+        stats.forEach(stat => {
+            const target = +stat.getAttribute('data-target');
+            const duration = 2000;
+            const increment = target / (duration / 16);
+            let current = 0;
+
+            const updateCounter = () => {
+                current += increment;
+                if (current < target) {
+                    stat.textContent = Math.ceil(current);
+                    requestAnimationFrame(updateCounter);
+                } else {
+                    stat.textContent = target;
+                    if (target > 10) stat.textContent += '+';
+                }
+            };
+            updateCounter();
+        });
+    };
+
+    const statsSection = document.querySelector('.section-stats');
+    if (statsSection) {
+        const statsObserver = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting && !animated) {
+                animateStats();
+                animated = true;
+            }
+        }, { threshold: 0.5 });
+        statsObserver.observe(statsSection);
+    }
+
+    // Fetch GitHub repositories count
+    async function fetchGitHubRepos() {
+        try {
+            const response = await fetch('https://api.github.com/users/ED54000');
+            const data = await response.json();
+            const reposElement = document.getElementById('github-repos');
+            if (reposElement && data.public_repos) {
+                reposElement.textContent = data.public_repos + '+';
+            }
+        } catch (error) {
+            console.log('GitHub API not available, keeping static value');
+            const reposElement = document.getElementById('github-repos');
+            if (reposElement) {
+                reposElement.textContent = '34+';
+            }
+        }
+    }
+
+    // Call when DOM is loaded
+    fetchGitHubRepos();
+
     window.addEventListener('scroll', () => {
         const scrolled = window.pageYOffset;
         const hero = document.querySelector('.hero::before');
         if (hero && scrolled < window.innerHeight) {
-            document.querySelector('.hero').style.transform = `translateY(${scrolled * 0.5}px)`;
+            document.querySelector('.hero').style.transform = `translateY(${scrolled * 0.4}px)`;
         }
     });
 
-    // Add typing effect to status
-    const status = document.querySelector('.status');
-    if (status) {
-        const text = status.textContent;
-        status.textContent = '';
-        let i = 0;
-        
-        setTimeout(() => {
-            const typeWriter = () => {
-                if (i < text.length) {
-                    status.textContent += text.charAt(i);
-                    i++;
-                    setTimeout(typeWriter, 50);
-                }
-            };
-            typeWriter();
-        }, 1000);
-    }
-
-    // Add counter animation for skills
-    const skillTags = document.querySelectorAll('.tag');
-    skillTags.forEach((tag, index) => {
-        tag.style.animationDelay = `${index * 0.05}s`;
-    });
-
-    // Add progress indicator
     const progressBar = document.createElement('div');
     progressBar.style.cssText = `
         position: fixed;
-        top: 0;
-        left: 0;
+        top: 0; left: 0;
         height: 3px;
         background: var(--color-accent);
-        z-index: 10000;
+        z-index: 10001;
         transition: width 0.2s ease-out;
     `;
     document.body.appendChild(progressBar);
@@ -98,14 +143,13 @@ document.addEventListener('DOMContentLoaded', () => {
         progressBar.style.width = `${scrolled}%`;
     });
 
-    // Easter egg: Konami code
     let konamiCode = [];
     const pattern = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
-    
+
     window.addEventListener('keydown', (e) => {
         konamiCode.push(e.key);
         konamiCode = konamiCode.slice(-10);
-        
+
         if (konamiCode.join(',') === pattern.join(',')) {
             document.body.style.animation = 'rainbow 2s infinite';
             setTimeout(() => {
@@ -115,7 +159,38 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Add CSS for rainbow animation
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeModal(event, modalId) {
+    const modal = document.getElementById(modalId);
+    if (event.target === modal) {
+        closeModalForce(modalId);
+    }
+}
+
+function closeModalForce(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+}
+
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal.show').forEach(modal => {
+            modal.classList.remove('show');
+        });
+        document.body.style.overflow = '';
+    }
+});
+
 const style = document.createElement('style');
 style.textContent = `
     @keyframes rainbow {
